@@ -5,6 +5,8 @@ import com.uber.bg.uber.bg.Enumerations.USER_ROLE;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Builder
@@ -39,6 +41,14 @@ public class User extends BaseEntity {
     @Column(name = "role", nullable = false)
     @Enumerated(EnumType.STRING)
     private USER_ROLE role;
+
+    @OneToMany(mappedBy = "passenger", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<Ride> rideHistory = new ArrayList<>();
+
+    @OneToMany(mappedBy = "driver", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<Ride> driveHistory = new ArrayList<>();
+
+
 
 }
 
