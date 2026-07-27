@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.uber.bg.uber.bg.Enumerations.RIDE_STATUS;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.BatchSize;
 
 import java.time.Instant;
 
@@ -32,6 +33,9 @@ public class Ride extends BaseEntity{
     @Column(name = "status")
     @Enumerated(EnumType.STRING)
     private RIDE_STATUS status;
+
+    @Column(name = "people")
+    private int people;
 
     @Column(name = "date")
     private Instant date;

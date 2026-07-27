@@ -31,6 +31,11 @@ public class RiderService {
 
 @Transactional
     public void requestRide(final UUID id, final String location) {
+
+        if (redisTemplate.hasKey("passenger:to:ride:"+id.toString())){
+            throw new IllegalStateException("already requested a ride");
+        }
+
         User user = userRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("No passenger with this id"));
 
         Ride ride = Ride.builder()
@@ -48,8 +53,12 @@ public class RiderService {
             "passengerId", id.toString(),
             "pickupLocation", location,
             "status", ride.getStatus().name(),
+            "people", String.valueOf(ride.getPeople()),
             "timestamp", ride.getDate().toString()
     );
+
+
+
 
     String redisKey = "ride:active:" + ride.getId().toString();
     redisTemplate.opsForHash().putAll(redisKey, redisRideState);

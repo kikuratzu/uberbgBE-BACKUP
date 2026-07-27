@@ -17,9 +17,9 @@ import java.util.function.Function;
 @Service
 public class JwtService {
 
-    // Must be at least 256 bits long (32 bytes) and Base64 encoded
+
     private static final String SECRET_KEY = "NDI0MzQ0NDU0NjQ3NDg0OTUwNTE1MjUzNTQ1NTU2NTc1ODU5NjA2MTYyNjM2NDY1NjY2Nzg5";
-    private static final long EXPIRATION_TIME = 86400000; // 24 hours in milliseconds
+    private static final long EXPIRATION_TIME = 86400000;
 
     public String generateToken(String username, UUID id) {
         Map<String, Object> claims = new HashMap<>();
@@ -36,7 +36,7 @@ public class JwtService {
                 .signWith(getSigningKey(), Jwts.SIG.HS256)
                 .compact();
     }
-    // Add this helper method inside your existing JwtService class:
+
     public long getRemainingExpirationTime(String token) {
         Date expiration = extractClaim(token, Claims::getExpiration);
         return expiration.getTime() - System.currentTimeMillis();
