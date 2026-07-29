@@ -2,7 +2,7 @@ package com.uber.bg.uber.bg.Services;
 
 import com.uber.bg.uber.bg.Entities.User;
 import com.uber.bg.uber.bg.Entities.UserPrincipal;
-import com.uber.bg.uber.bg.Repositories.UserRepository;
+import com.uber.bg.uber.bg.Repositories.Jpa.UserRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.userdetails.UserDetails;

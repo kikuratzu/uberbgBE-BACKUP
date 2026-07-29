@@ -2,8 +2,8 @@ package com.uber.bg.uber.bg.Services;
 
 import com.uber.bg.uber.bg.Entities.Ride;
 import com.uber.bg.uber.bg.Enumerations.RIDE_STATUS;
-import com.uber.bg.uber.bg.Repositories.RideRepository;
-import com.uber.bg.uber.bg.Repositories.UserRepository;
+import com.uber.bg.uber.bg.Repositories.Jpa.RideRepository;
+import com.uber.bg.uber.bg.Repositories.Jpa.UserRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -65,7 +65,8 @@ public class DriverService {
         }
         ride.setStatus(RIDE_STATUS.ACCEPTED);
         ride.setDriver(userRepository.findById(driverId).orElseThrow(() -> new IllegalArgumentException("no driver with this id")));
-        redisTemplate.delete("ride:active:"+ride.getId().toString());
+
+        redisTemplate.opsForHash().put("ride:"+ride.getId().toString(), "status", ride.getStatus().name());
         redisTemplate.delete("passenger:to:ride:"+ride.getPassenger().getId());
         redisTemplate.opsForSet().remove("rides:open", ride.getId().toString());
         rideRepository.saveAndFlush(ride);
