@@ -36,7 +36,7 @@ public class SecurityConfiguration {
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/**", "/error","/chat/**","http://127.0.0.1:5500/fsdfs.html").permitAll()
+                        .requestMatchers("/api/auth/**", "/error","/chat/**").permitAll()
                         .requestMatchers("/api/passenger/**").hasRole("PASSENGER")
                         .requestMatchers("/api/driver/**").hasRole("DRIVER")
                         .anyRequest().authenticated()

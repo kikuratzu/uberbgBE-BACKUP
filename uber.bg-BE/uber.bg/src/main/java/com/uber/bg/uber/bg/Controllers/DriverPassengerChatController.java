@@ -8,6 +8,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
+import org.springframework.messaging.handler.annotation.SendTo;
+import org.springframework.messaging.simp.annotation.SendToUser;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -28,16 +30,24 @@ public class DriverPassengerChatController {
         this.chatService = chatService;
     }
 
-  @MessageMapping("/chat/{rideId}")
-  @PreAuthorize("hasAnyRole('PASSENGER','DRIVER','ADMIN')")
-    public String handleRideChat(
-          @DestinationVariable final UUID rideId,
-          @Payload ChatEntityDTO dto
-          ) {
-      log.info("Received chat message for ride: {}", rideId);
-      chatService.handleRideChat(rideId, dto);
-      return "a";
-  }
+    @MessageMapping("/chat/{rideId}")
+    @SendTo("/topic/ride/{rideId}")
+    public ChatEntityDTO handleRideChat(
+            @DestinationVariable final UUID rideId,
+            @Payload ChatEntityDTO dto
+    ) {
+        System.out.println("!!! CONTROLLER METHOD EXECUTED SUCCESSFULLY !!!");
+        log.info("Received chat message for ride: {}", rideId);
+        return chatService.handleRideChat(rideId, dto);
+    }
+
+    @MessageMapping("/ping")
+    @SendTo("/topic/pong")
+    public String handlePing(String message) {
+        System.out.println("!!! PING METHOD EXECUTED: " + message);
+        log.info("Ping message received: {}", message);
+        return "PONG: " + message;
+    }
 
 
 

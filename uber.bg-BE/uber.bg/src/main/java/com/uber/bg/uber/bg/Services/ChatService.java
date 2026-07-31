@@ -28,7 +28,7 @@ public class ChatService {
     }
 
 
-    public void handleRideChat(final UUID rideId, final ChatEntityDTO dto) {
+    public ChatEntityDTO handleRideChat(final UUID rideId, final ChatEntityDTO dto) {
         Object cachedStatus = redisTemplate.opsForHash().get("ride:" + rideId.toString(), "status");
 
         if (cachedStatus == null || !cachedStatus.toString().equals(RIDE_STATUS.ACCEPTED.name())) {
@@ -42,7 +42,7 @@ public class ChatService {
 
         ChatEntity savedChat = chatRepository.save(chatEntity);
 
-        messagingTemplate.convertAndSend("/topic/ride/"+rideId, savedChat);
+        return dto;
 
     }
 

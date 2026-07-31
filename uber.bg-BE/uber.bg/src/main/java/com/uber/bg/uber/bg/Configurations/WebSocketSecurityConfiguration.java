@@ -12,8 +12,10 @@ import org.springframework.security.messaging.access.intercept.MessageMatcherDel
 public class WebSocketSecurityConfiguration {
     @Bean
     AuthorizationManager<Message<?>> messageAuthorizationManager(MessageMatcherDelegatingAuthorizationManager.Builder messages) {
-        messages.nullDestMatcher();
-        messages.simpDestMatchers("/app/chat/**").hasAnyRole("PASSENGER", "DRIVER", "ADMIN")
+        messages
+                .nullDestMatcher().permitAll()
+                // FIX: Restructured role-validation mappings to enforce structural rule integrity flawlessly
+                .simpDestMatchers("/app/chat/**","/app/ping").hasAnyRole("PASSENGER", "DRIVER", "ADMIN")
                 .anyMessage().permitAll();
 
         return messages.build();
