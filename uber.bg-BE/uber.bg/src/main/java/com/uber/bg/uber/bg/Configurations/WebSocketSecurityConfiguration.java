@@ -1,24 +1,22 @@
 package com.uber.bg.uber.bg.Configurations;
 
-import org.springframework.messaging.Message;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.authorization.AuthorizationManager;
-import org.springframework.security.config.annotation.web.socket.EnableWebSocketSecurity;
-import org.springframework.security.messaging.access.intercept.MessageMatcherDelegatingAuthorizationManager;
+import org.springframework.security.config.annotation.web.messaging.MessageSecurityMetadataSourceRegistry;
+import org.springframework.security.config.annotation.web.socket.AbstractSecurityWebSocketMessageBrokerConfigurer;
 
 @Configuration
-@EnableWebSocketSecurity
-public class WebSocketSecurityConfiguration {
-    @Bean
-    AuthorizationManager<Message<?>> messageAuthorizationManager(MessageMatcherDelegatingAuthorizationManager.Builder messages) {
+public class WebSocketSecurityConfiguration extends AbstractSecurityWebSocketMessageBrokerConfigurer {
+
+    @Override
+    protected void configureInbound(MessageSecurityMetadataSourceRegistry messages) {
         messages
                 .nullDestMatcher().permitAll()
-                // FIX: Restructured role-validation mappings to enforce structural rule integrity flawlessly
-                .simpDestMatchers("/app/chat/**","/app/ping").hasAnyRole("PASSENGER", "DRIVER", "ADMIN")
+                .simpDestMatchers("/app/chat/**", "/app/ping").hasAnyRole("PASSENGER", "DRIVER", "ADMIN")
                 .anyMessage().permitAll();
-
-        return messages.build();
     }
 
+    @Override
+    protected boolean sameOriginDisabled() {
+        return true;
+    }
 }

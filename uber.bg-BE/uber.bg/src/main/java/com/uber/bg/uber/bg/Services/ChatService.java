@@ -39,10 +39,13 @@ public class ChatService {
         BeanUtils.copyProperties(dto,chatEntity);
         chatEntity.setTime(Instant.now());
         chatEntity.setRideId(rideId.toString());
+        chatEntity.setId(UUID.randomUUID());
 
         ChatEntity savedChat = chatRepository.save(chatEntity);
+        ChatEntityDTO response = new ChatEntityDTO();
+        BeanUtils.copyProperties(savedChat, response);
+        return response;
 
-        return dto;
 
     }
 
