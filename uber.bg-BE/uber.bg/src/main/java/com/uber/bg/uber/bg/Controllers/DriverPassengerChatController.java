@@ -12,7 +12,6 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 
 
-import java.security.Principal;
 import java.util.UUID;
 
 @Controller

@@ -1,5 +1,6 @@
 package com.uber.bg.uber.bg.Services;
 
+import com.uber.bg.uber.bg.DTOs.LocationPingDTO;
 import com.uber.bg.uber.bg.Entities.Ride;
 import com.uber.bg.uber.bg.Enumerations.RIDE_STATUS;
 import com.uber.bg.uber.bg.Repositories.Jpa.RideRepository;
@@ -7,6 +8,11 @@ import com.uber.bg.uber.bg.Repositories.Jpa.UserRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.kafka.support.KafkaHeaders;
+import org.springframework.messaging.handler.annotation.Header;
+import org.springframework.messaging.handler.annotation.Payload;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.retry.annotation.Retryable;
 import org.springframework.retry.annotation.Backoff;
@@ -23,12 +29,14 @@ public class DriverService {
     private final RideRepository rideRepository;
     private final UserRepository userRepository;
    private final RedisTemplate<String, Object> redisTemplate;
+   private SimpMessagingTemplate simpMessagingTemplate;
 
     @Autowired
-    public DriverService(RideRepository rideRepository, RedisTemplate<String, Object> redisTemplate, UserRepository userRepository) {
+    public DriverService(RideRepository rideRepository, RedisTemplate<String, Object> redisTemplate, UserRepository userRepository, SimpMessagingTemplate simpMessagingTemplate) {
         this.rideRepository = rideRepository;
         this.redisTemplate = redisTemplate;
         this.userRepository = userRepository;
+        this.simpMessagingTemplate = simpMessagingTemplate;
     }
 
     @Retryable(
@@ -70,6 +78,18 @@ public class DriverService {
         redisTemplate.delete("passenger:to:ride:"+ride.getPassenger().getId());
         redisTemplate.opsForSet().remove("rides:open", ride.getId().toString());
         rideRepository.saveAndFlush(ride);
+    }
+
+    @KafkaListener(topics = "driver-locations", groupId = "uber-core-group")
+    public void streamLocation(@Header("rideId") final String rideId,
+                               @Header(KafkaHeaders.RECEIVED_KEY) final String driverId,
+                               @Payload final LocationPingDTO dto) {
+        String coordinates = dto.getLongitude() + "," + dto.getLatitude();
+        redisTemplate.opsForValue().set("driver:current:"+driverId, coordinates);
+        redisTemplate.opsForList().rightPush("ride:location:history:"+rideId, coordinates);
+        String wsDestination = "/topic/ride/" + rideId;
+        simpMessagingTemplate.convertAndSend(wsDestination, coordinates);
+
     }
 
 
