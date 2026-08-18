@@ -1,12 +1,18 @@
 package com.uber.bg.uber.bg.Services;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.uber.bg.uber.bg.DTOs.LocationPingDTO;
 import com.uber.bg.uber.bg.Entities.Ride;
 import com.uber.bg.uber.bg.Enumerations.RIDE_STATUS;
 import com.uber.bg.uber.bg.Repositories.Jpa.RideRepository;
 import com.uber.bg.uber.bg.Repositories.Jpa.UserRepository;
 import lombok.extern.slf4j.Slf4j;
+import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.GeometryFactory;
+import org.locationtech.jts.geom.LineString;
+import org.locationtech.jts.geom.PrecisionModel;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.KafkaHeaders;
@@ -20,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 
 import java.net.ConnectException;
+import java.time.Duration;
 import java.util.*;
 
 @Slf4j
@@ -30,13 +37,46 @@ public class DriverService {
     private final UserRepository userRepository;
    private final RedisTemplate<String, Object> redisTemplate;
    private SimpMessagingTemplate simpMessagingTemplate;
+   private ObjectMapper objectMapper;
+    private final GeometryFactory geometryFactory = new GeometryFactory(new PrecisionModel(), 4236);
 
     @Autowired
-    public DriverService(RideRepository rideRepository, RedisTemplate<String, Object> redisTemplate, UserRepository userRepository, SimpMessagingTemplate simpMessagingTemplate) {
+    public DriverService(RideRepository rideRepository, RedisTemplate<String, Object> redisTemplate, UserRepository userRepository, SimpMessagingTemplate simpMessagingTemplate, ObjectMapper objectMapper) {
         this.rideRepository = rideRepository;
         this.redisTemplate = redisTemplate;
         this.userRepository = userRepository;
         this.simpMessagingTemplate = simpMessagingTemplate;
+        this.objectMapper = objectMapper;
+    }
+
+    public LineString getRideCoordinates(final String rideId) {
+        String historyKey = "ride:history:coordinates:"+rideId;
+        List<String> coordinatesStrings = redisTemplate.opsForList().range(historyKey, 0, -1)
+                .stream()
+                .map(obj -> (String) obj)
+                .toList();
+
+        List<Coordinate> coordinates = new ArrayList<>();
+
+        if (coordinatesStrings != null){
+            for(String coord : coordinatesStrings){
+                String[] parts = coord.split(",");
+                if (parts.length == 2) {
+                    try {
+                        double longitude = Double.parseDouble(parts[0]);
+                        double latitude = Double.parseDouble(parts[1]);
+
+                       coordinates.add(new Coordinate(longitude, latitude));
+                    }
+                    catch (NumberFormatException e){
+                    }
+
+                }
+            }
+        }
+       Coordinate[] coordinates1 = coordinates.toArray(new Coordinate[0]);
+        return geometryFactory.createLineString(coordinates1);
+
     }
 
     @Retryable(
@@ -81,15 +121,37 @@ public class DriverService {
     }
 
     @KafkaListener(topics = "driver-locations", groupId = "uber-core-group")
-    public void streamLocation(@Header("rideId") final String rideId,
-                               @Header(KafkaHeaders.RECEIVED_KEY) final String driverId,
+    public void streamLocation(@Header(value = "rideId", required = false) final String rideId,
+                               @Header(value = KafkaHeaders.RECEIVED_KEY, required = false) final String driverId,
                                @Payload final LocationPingDTO dto) {
+
+
+        if (driverId == null || rideId == null || dto == null) {
+            throw new IllegalArgumentException("no data provided");
+        }
+
         String coordinates = dto.getLongitude() + "," + dto.getLatitude();
-        redisTemplate.opsForValue().set("driver:current:"+driverId, coordinates);
-        redisTemplate.opsForList().rightPush("ride:location:history:"+rideId, coordinates);
+        String currentKey = "driver:current:" + driverId;
+        String historyKey = "ride:location:history:" + rideId;
+
+        redisTemplate.executePipelined((RedisCallback<Object>) connection -> {
+            connection.stringCommands().set(currentKey.getBytes(), coordinates.getBytes());
+            connection.listCommands().rPush(historyKey.getBytes(), coordinates.getBytes());
+            return null;
+        });
+
+        redisTemplate.expire(historyKey, Duration.ofHours(6));
+        redisTemplate.expire(currentKey, Duration.ofHours(2));
+
         String wsDestination = "/topic/ride/" + rideId;
         simpMessagingTemplate.convertAndSend(wsDestination, coordinates);
+    }
 
+    @Transactional
+    public void endRide(final UUID id){
+        Ride ride = rideRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("ride with this id is not present in the database"));
+        ride.setStatus(RIDE_STATUS.ARRIVED);
+        ride.setDriverLocationHistory(getRideCoordinates(id.toString()));
     }
 
 

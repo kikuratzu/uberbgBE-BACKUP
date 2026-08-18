@@ -59,4 +59,10 @@ public class DriverController {
     this.kafkaTemplate.send(record);
 }
 
+@DeleteMapping("/endRide/{rideId}")
+    @PreAuthorize("hasRole('DRIVER')")
+    public void endRide(@PathVariable final UUID rideId) {
+
+}
+
 }
