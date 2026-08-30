@@ -42,6 +42,9 @@ public class User extends BaseEntity {
     @Enumerated(EnumType.STRING)
     private USER_ROLE role;
 
+   // @Column(name= "rating")
+   // private Double rating;
+
     @OneToMany(mappedBy = "passenger", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<Ride> rideHistory = new ArrayList<>();
 

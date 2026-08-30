@@ -1,5 +1,7 @@
 package com.uber.bg.uber.bg.Controllers;
 
+import com.uber.bg.uber.bg.DTOs.ChangePasswordDTO;
+import com.uber.bg.uber.bg.DTOs.ChangeUsernameDTO;
 import com.uber.bg.uber.bg.DTOs.CreateUserDTO;
 import com.uber.bg.uber.bg.DTOs.LoginUserDTO;
 import com.uber.bg.uber.bg.Services.UserService;
@@ -41,6 +43,39 @@ public class UserController {
     public HttpStatus logoutUser(@RequestHeader("Authorization") final String token) {
      service.logout(token.substring(7));
      return HttpStatus.ACCEPTED;
+    }
+
+    @PostMapping("/request-username-change")
+    @PreAuthorize("hasAnyRole('PASSENGER','DRIVER','ADMIN')")
+    public ResponseEntity<Map<String, String>> requestChange(@RequestBody final ChangeUsernameDTO dto) {
+        service.initiateUsernameChangeFlow(dto);
+        return ResponseEntity.ok(Map.of("message", "Verification code sent to your email."));
+    }
+
+    @PatchMapping("/confirm-username-change")
+    @PreAuthorize("hasAnyRole('PASSENGER','DRIVER','ADMIN')")
+    public ResponseEntity<Map<String, String>> confirmChange(@RequestBody final ChangeUsernameDTO dto,
+                                                             @RequestParam final String code) {
+        String newToken = service.changeUsername(dto, code);
+        return ResponseEntity.ok(Map.of(
+                "message", "Username updated successfully!",
+                "token", newToken
+        ));
+    }
+
+    @PostMapping("/request-password-change")
+    @PreAuthorize("hasAnyRole('PASSENGER','DRIVER','ADMIN')")
+    public ResponseEntity<Map<String, String>> requestPasswordChange(@RequestBody final ChangePasswordDTO dto){
+        service.initiatePasswordChange(dto);
+        return ResponseEntity.ok(Map.of("message", "Verification code sent to your email"));
+    }
+
+    @PatchMapping("/confirm-password-change")
+    @PreAuthorize("hasAnyRole('PASSENGER','DRIVER','ADMIN')")
+    public ResponseEntity<Map<String, String>> confirmPasswordChange(@RequestBody final ChangePasswordDTO dto,
+                                                                     @RequestParam final String code) {
+        service.changePassword(dto, code);
+        return ResponseEntity.ok(Map.of("message","Password updated successfully!"));
     }
 
 }

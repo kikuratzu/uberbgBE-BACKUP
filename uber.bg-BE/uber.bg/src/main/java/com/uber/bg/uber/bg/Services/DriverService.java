@@ -50,6 +50,8 @@ public class DriverService {
     }
 
     public LineString getRideCoordinates(final String rideId) {
+        log.info("Fetching telemetry coordinate history from Redis for rideId: {}", rideId);
+
         String historyKey = "ride:history:coordinates:"+rideId;
         List<String> coordinatesStrings = redisTemplate.opsForList().range(historyKey, 0, -1)
                 .stream()
@@ -74,8 +76,13 @@ public class DriverService {
                 }
             }
         }
-       Coordinate[] coordinates1 = coordinates.toArray(new Coordinate[0]);
-        return geometryFactory.createLineString(coordinates1);
+        Coordinate[] coordinates1 = coordinates.toArray(new Coordinate[0]);
+        LineString lineString = geometryFactory.createLineString(coordinates1);
+
+
+        lineString.setSRID(4326);
+
+        return lineString;
 
     }
 
@@ -115,6 +122,7 @@ public class DriverService {
         ride.setDriver(userRepository.findById(driverId).orElseThrow(() -> new IllegalArgumentException("no driver with this id")));
 
         redisTemplate.opsForHash().put("ride:"+ride.getId().toString(), "status", ride.getStatus().name());
+        redisTemplate.opsForHash().put("ride:"+ride.getId().toString(), "driverId", driverId.toString());
         redisTemplate.delete("passenger:to:ride:"+ride.getPassenger().getId());
         redisTemplate.opsForSet().remove("rides:open", ride.getId().toString());
         rideRepository.saveAndFlush(ride);
@@ -127,12 +135,17 @@ public class DriverService {
 
 
         if (driverId == null || rideId == null || dto == null) {
+            log.error("Kafka consumer received an invalid null payload stream sequence. " +
+                    "Headers -> driverId: {}, rideId: {}. DTO present: {}", driverId, rideId, (dto != null));
             throw new IllegalArgumentException("no data provided");
         }
 
+        log.trace("Location ingestion heartbeat from Kafka. Driver: {}, Ride: {}, Long: {}, Lat: {}",
+                driverId, rideId, dto.getLongitude(), dto.getLatitude());
+
         String coordinates = dto.getLongitude() + "," + dto.getLatitude();
         String currentKey = "driver:current:" + driverId;
-        String historyKey = "ride:location:history:" + rideId;
+        String historyKey = "ride:history:coordinates:" + rideId;
 
         redisTemplate.executePipelined((RedisCallback<Object>) connection -> {
             connection.stringCommands().set(currentKey.getBytes(), coordinates.getBytes());
@@ -152,6 +165,11 @@ public class DriverService {
         Ride ride = rideRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("ride with this id is not present in the database"));
         ride.setStatus(RIDE_STATUS.ARRIVED);
         ride.setDriverLocationHistory(getRideCoordinates(id.toString()));
+
+        rideRepository.save(ride);
+
+        redisTemplate.delete("ride:history:coordinates:"+id.toString());
+        redisTemplate.delete("ride:"+id.toString());
     }
 
 

@@ -62,7 +62,7 @@ public class DriverController {
 @DeleteMapping("/endRide/{rideId}")
     @PreAuthorize("hasRole('DRIVER')")
     public void endRide(@PathVariable final UUID rideId) {
-
+service.endRide(rideId);
 }
 
 }

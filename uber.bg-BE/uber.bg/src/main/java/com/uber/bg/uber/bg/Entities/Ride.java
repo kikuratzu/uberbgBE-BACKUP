@@ -41,7 +41,7 @@ public class Ride extends BaseEntity{
     private RIDE_STATUS status;
 
     @Column(name = "people")
-    private int people;
+    private Integer people;
 
     @Column(name = "date")
     private Instant date;

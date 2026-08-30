@@ -50,6 +50,7 @@ public class RiderService {
     Map<String, String> redisRideState = Map.of(
             "rideId", ride.getId().toString(),
             "passengerId", id.toString(),
+            "driverId", "",
             "pickupLocation", location,
             "status", ride.getStatus().name(),
             "people", String.valueOf(ride.getPeople()),
@@ -83,6 +84,11 @@ public class RiderService {
         redisTemplate.delete("passenger:to:ride:"+id);
         redisTemplate.opsForSet().remove("rides:open", ride.getId().toString());
         rideRepository.save(ride);
+    }
+
+    @Transactional
+    public void rateRide(final UUID rideId) {
+
     }
 
 

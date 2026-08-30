@@ -38,4 +38,10 @@ public class RiderController {
         return HttpStatus.ACCEPTED;
     }
 
+    @PatchMapping("rateRide/{rideId}")
+    @PreAuthorize("hasRole('PASSENGER')")
+    public void rateRide(@PathVariable final UUID rideId) {
+        service.rateRide(rideId);
+    }
+
 }
