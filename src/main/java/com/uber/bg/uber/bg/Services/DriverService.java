@@ -121,7 +121,7 @@ public class DriverService {
         String wsDestination = "/topic/ride/" + rideId;
         simpMessagingTemplate.convertAndSend(wsDestination, coordinates);
 
-        kafkaTemplate.send("ride-coordinates-db-store", rideId, String.valueOf(dto.getLongitude() +'|' + dto.getLatitude()));
+        kafkaTemplate.send("ride-coordinates-db-store", rideId, dto.getLongitude() + "|" + dto.getLatitude());
 
     }
 

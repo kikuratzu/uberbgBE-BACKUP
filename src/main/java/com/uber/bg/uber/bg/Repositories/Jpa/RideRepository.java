@@ -1,7 +1,7 @@
 package com.uber.bg.uber.bg.Repositories.Jpa;
 
 import com.uber.bg.uber.bg.Entities.Ride;
-import io.lettuce.core.dynamic.annotation.Param;
+import org.springframework.data.repository.query.Param;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
@@ -20,8 +20,8 @@ public interface RideRepository extends JpaRepository<Ride, UUID> {
 
     @Modifying
     @Query(value = "UPDATE rides SET driver_location = (" +
-            "SELECT ST_MakeLine(ST_SetSRID(ST_MakePoint(longitude, latitude), 4326) ORDER BY created_at ASC" +
-            "FROM temp_ride_coordinates WHERE ride_id = :rideId" +
-            "WHERE id = :rideId", nativeQuery = true)
+            " SELECT ST_MakeLine(ST_SetSRID(ST_MakePoint(longitude, latitude), 4326) ORDER BY created_at ASC)::geometry " +
+            " FROM temp_ride_coordinates WHERE ride_id = :rideId" +
+            ") WHERE id = :rideId", nativeQuery = true)
     void compileRouteHistoryToLineString(@Param("rideId") UUID rideId);
 }
