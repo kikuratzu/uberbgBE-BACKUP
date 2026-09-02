@@ -7,12 +7,14 @@ import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.data.mongodb.repository.config.EnableMongoRepositories;
 import org.springframework.data.redis.repository.configuration.EnableRedisRepositories;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 @SpringBootApplication
 @EnableJpaAuditing
 @EnableJpaRepositories(basePackages = "com.uber.bg.uber.bg.Repositories.Jpa")
 @EnableMongoRepositories(basePackages = "com.uber.bg.uber.bg.Repositories.Mongo")
 @EnableRedisRepositories(basePackages = "com.uber.bg.uber.bg.Repositores.Redis")
+@EnableScheduling
 public class Application {
 
 	public static void main(String[] args) {

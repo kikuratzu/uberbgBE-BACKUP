@@ -5,6 +5,7 @@ import com.uber.bg.uber.bg.DTOs.LocationPingDTO;
 import com.uber.bg.uber.bg.Entities.Ride;
 import com.uber.bg.uber.bg.Enumerations.RIDE_STATUS;
 import com.uber.bg.uber.bg.Repositories.Jpa.RideRepository;
+import com.uber.bg.uber.bg.Repositories.Jpa.TempRideCoordinatesRepository;
 import com.uber.bg.uber.bg.Repositories.Jpa.UserRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.locationtech.jts.geom.Coordinate;
@@ -15,6 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.KafkaHeaders;
 import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.messaging.handler.annotation.Payload;
@@ -36,66 +38,31 @@ public class DriverService {
     private final RideRepository rideRepository;
     private final UserRepository userRepository;
    private final RedisTemplate<String, Object> redisTemplate;
-   private SimpMessagingTemplate simpMessagingTemplate;
-   private ObjectMapper objectMapper;
+   private final SimpMessagingTemplate simpMessagingTemplate;
+  private final KafkaTemplate<String, String> kafkaTemplate;
+   private final TempRideCoordinatesRepository tempRideCoordinatesRepository;
     private final GeometryFactory geometryFactory = new GeometryFactory(new PrecisionModel(), 4236);
 
     @Autowired
-    public DriverService(RideRepository rideRepository, RedisTemplate<String, Object> redisTemplate, UserRepository userRepository, SimpMessagingTemplate simpMessagingTemplate, ObjectMapper objectMapper) {
+    public DriverService(RideRepository rideRepository, RedisTemplate<String, Object> redisTemplate, UserRepository userRepository, SimpMessagingTemplate simpMessagingTemplate, KafkaTemplate<String, String> kafkaTemplate, TempRideCoordinatesRepository tempRideCoordinatesRepository) {
         this.rideRepository = rideRepository;
         this.redisTemplate = redisTemplate;
         this.userRepository = userRepository;
         this.simpMessagingTemplate = simpMessagingTemplate;
-        this.objectMapper = objectMapper;
-    }
-
-    public LineString getRideCoordinates(final String rideId) {
-        log.info("Fetching telemetry coordinate history from Redis for rideId: {}", rideId);
-
-        String historyKey = "ride:history:coordinates:"+rideId;
-        List<String> coordinatesStrings = redisTemplate.opsForList().range(historyKey, 0, -1)
-                .stream()
-                .map(obj -> (String) obj)
-                .toList();
-
-        List<Coordinate> coordinates = new ArrayList<>();
-
-        if (coordinatesStrings != null){
-            for(String coord : coordinatesStrings){
-                String[] parts = coord.split(",");
-                if (parts.length == 2) {
-                    try {
-                        double longitude = Double.parseDouble(parts[0]);
-                        double latitude = Double.parseDouble(parts[1]);
-
-                       coordinates.add(new Coordinate(longitude, latitude));
-                    }
-                    catch (NumberFormatException e){
-                    }
-
-                }
-            }
-        }
-        Coordinate[] coordinates1 = coordinates.toArray(new Coordinate[0]);
-        LineString lineString = geometryFactory.createLineString(coordinates1);
-
-
-        lineString.setSRID(4326);
-
-        return lineString;
-
+        this.kafkaTemplate = kafkaTemplate;
+        this.tempRideCoordinatesRepository = tempRideCoordinatesRepository;
     }
 
     @Retryable(
             retryFor = {org.springframework.data.redis.RedisConnectionFailureException.class, ConnectException.class},
-            maxAttempts = 3,
+            maxAttempts = 4,
             backoff = @Backoff(delay = 1000, multiplier = 2.0)
     )
     @Transactional(readOnly = true)
     public List<Map<String, String>> getAllAvailableRides() {
    Set<Object> allAvailableRides = redisTemplate.opsForSet().members("rides:open");
    List<Ride> rides =
-   allAvailableRides.stream()
+   Objects.requireNonNull(allAvailableRides).stream()
            .map(Object::toString)
            .map(UUID::fromString)
            .map(rideRepository::findById)
@@ -148,28 +115,26 @@ public class DriverService {
 
         String coordinates = dto.getLongitude() + "," + dto.getLatitude();
         String currentKey = "driver:current:stream:" + driverId;
-        String historyKey = "ride:history:coordinates:" + rideId;
 
-        redisTemplate.executePipelined((RedisCallback<Object>) connection -> {
-            connection.stringCommands().set(currentKey.getBytes(), coordinates.getBytes());
-            connection.listCommands().rPush(historyKey.getBytes(), coordinates.getBytes());
-            return null;
-        });
-
-        redisTemplate.expire(historyKey, Duration.ofHours(6));
-        redisTemplate.expire(currentKey, Duration.ofHours(2));
+        redisTemplate.opsForValue().set(currentKey, coordinates, Duration.ofHours(2));
 
         String wsDestination = "/topic/ride/" + rideId;
         simpMessagingTemplate.convertAndSend(wsDestination, coordinates);
+
+        kafkaTemplate.send("ride-coordinates-db-store", rideId, String.valueOf(dto.getLongitude() +'|' + dto.getLatitude()));
+
     }
 
     @Transactional
     public void endRide(final UUID id){
         Ride ride = rideRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("ride with this id is not present in the database"));
         ride.setStatus(RIDE_STATUS.ARRIVED);
-        ride.setDriverLocationHistory(getRideCoordinates(id.toString()));
 
         rideRepository.save(ride);
+
+        rideRepository.compileRouteHistoryToLineString(id);
+
+        tempRideCoordinatesRepository.deleteByRideId(id);
 
         redisTemplate.delete("ride:history:coordinates:"+id.toString());
         redisTemplate.delete("ride:"+id.toString());
