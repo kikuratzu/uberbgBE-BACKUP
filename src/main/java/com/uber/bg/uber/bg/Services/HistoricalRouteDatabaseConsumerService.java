@@ -22,7 +22,7 @@ public class HistoricalRouteDatabaseConsumerService {
 
     @KafkaListener(topics = "ride-coordinates-db-store", groupId = "uber-db-writer-group")
     public void consumeAndSaveToPostgres(List<ConsumerRecord<String,String>> records) {
-        String sql = "INSERT INTO temp_ride_coordinates (ride_id, longitude, latitude, created_at) VALUES(?, ?, ?, NOW())";
+        String sql = "INSERT INTO temp_ride_coordinates (id, ride_id, longitude, latitude, created_at) VALUES(?, ?, ?, ?, NOW())";
 
         jdbcTemplate.batchUpdate(sql, records, records.size(), ((ps, argument) -> {
             String rideIdStr = argument.key();
