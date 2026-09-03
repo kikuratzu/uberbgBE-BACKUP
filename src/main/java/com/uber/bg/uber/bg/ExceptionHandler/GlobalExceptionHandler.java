@@ -1,5 +1,6 @@
 package com.uber.bg.uber.bg.ExceptionHandler;
 
+import com.uber.bg.uber.bg.Exceptions.RateLimitException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -7,6 +8,7 @@ import org.springframework.messaging.handler.annotation.MessageExceptionHandler;
 import org.springframework.messaging.simp.annotation.SendToUser;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.util.HashMap;
@@ -33,4 +35,8 @@ public class GlobalExceptionHandler {
         log.warn("Chat rejected: {}", ex.getMessage());
         return ex.getMessage();
     }
+
+    @ResponseStatus(value = HttpStatus.TOO_MANY_REQUESTS, reason = "Rate limit exceeded")
+    @ExceptionHandler(RateLimitException.class)
+    public void handleRateLimit(){}
 }

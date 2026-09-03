@@ -4,6 +4,8 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Retryable;
 import org.springframework.util.StreamUtils;
 import org.springframework.stereotype.Service;
 import jakarta.mail.MessagingException;
@@ -21,7 +23,11 @@ public class EmailService {
         this.mailSender = mailSender;
         this.resourceLoader = resourceLoader;
     }
-
+    @Retryable(
+            retryFor = { MessagingException.class, IOException.class },
+            maxAttempts = 4,
+            backoff = @Backoff(delay = 2000, multiplier = 2.0) // 2s, then 4s, then 8s
+    )
     public void sendVerificationCode(String to, String subject, String sixDigitCode) {
         try {
             Resource resource = resourceLoader.getResource("classpath:/2fa-template.html");

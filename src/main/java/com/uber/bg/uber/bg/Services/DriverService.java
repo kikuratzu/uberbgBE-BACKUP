@@ -1,6 +1,5 @@
 package com.uber.bg.uber.bg.Services;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.uber.bg.uber.bg.DTOs.LocationPingDTO;
 import com.uber.bg.uber.bg.Entities.Ride;
 import com.uber.bg.uber.bg.Enumerations.RIDE_STATUS;
@@ -8,12 +7,7 @@ import com.uber.bg.uber.bg.Repositories.Jpa.RideRepository;
 import com.uber.bg.uber.bg.Repositories.Jpa.TempRideCoordinatesRepository;
 import com.uber.bg.uber.bg.Repositories.Jpa.UserRepository;
 import lombok.extern.slf4j.Slf4j;
-import org.locationtech.jts.geom.Coordinate;
-import org.locationtech.jts.geom.GeometryFactory;
-import org.locationtech.jts.geom.LineString;
-import org.locationtech.jts.geom.PrecisionModel;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -41,7 +35,7 @@ public class DriverService {
    private final SimpMessagingTemplate simpMessagingTemplate;
   private final KafkaTemplate<String, String> kafkaTemplate;
    private final TempRideCoordinatesRepository tempRideCoordinatesRepository;
-    private final GeometryFactory geometryFactory = new GeometryFactory(new PrecisionModel(), 4236);
+
 
     @Autowired
     public DriverService(RideRepository rideRepository, RedisTemplate<String, Object> redisTemplate, UserRepository userRepository, SimpMessagingTemplate simpMessagingTemplate, KafkaTemplate<String, String> kafkaTemplate, TempRideCoordinatesRepository tempRideCoordinatesRepository) {
@@ -171,6 +165,12 @@ public class DriverService {
         );
 
         log.debug("Successfully created hash index '{}' and updated geospatial matching ring cluster.", hashKey);
+    }
+
+    public void goOffline(final UUID driverId) {
+        redisTemplate.opsForZSet().remove("drivers:active", driverId.toString());
+        redisTemplate.opsForHash().put("driver:current:"+driverId.toString(),"status","OFFLINE");
+
     }
 
 

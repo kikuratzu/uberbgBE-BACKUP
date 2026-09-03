@@ -5,6 +5,7 @@ import com.uber.bg.uber.bg.DTOs.ChangeUsernameDTO;
 import com.uber.bg.uber.bg.DTOs.CreateUserDTO;
 import com.uber.bg.uber.bg.DTOs.LoginUserDTO;
 import com.uber.bg.uber.bg.Services.UserService;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -76,6 +77,13 @@ public class UserController {
                                                                      @RequestParam final String code) {
         service.changePassword(dto, code);
         return ResponseEntity.ok(Map.of("message","Password updated successfully!"));
+    }
+
+    @PostMapping("/resendCode")
+    @PreAuthorize("hasAnyRole('DRIVER','PASSENGER','ADMIN')")
+    public void resendCode(@RequestParam final String email,
+                           HttpServletRequest request) {
+        service.resendCode(email, request);
     }
 
 }

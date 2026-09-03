@@ -71,4 +71,10 @@ service.endRide(rideId);
         service.goOnline(driverId, dto);
 }
 
+@DeleteMapping("/goOffline/{driverId}")
+    @PreAuthorize("hasRole('DRIVER')")
+    public void goOffline(@PathVariable final UUID driverId) {
+        service.goOffline(driverId);
+}
+
 }

@@ -13,7 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class ChangeUsernameDTO extends BaseDTO{
 
-    private String username;
+    private String email;
     private String newUsername;
     private String password;
 

@@ -7,8 +7,10 @@ import com.uber.bg.uber.bg.DTOs.LoginUserDTO;
 import com.uber.bg.uber.bg.Entities.User;
 import com.uber.bg.uber.bg.Entities.VerificationCode;
 import com.uber.bg.uber.bg.Enumerations.USER_ROLE;
+import com.uber.bg.uber.bg.Exceptions.RateLimitException;
 import com.uber.bg.uber.bg.Repositories.Jpa.UserRepository;
 import com.uber.bg.uber.bg.Repositories.Redis.VerificationCodeRepository;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -43,6 +45,7 @@ public class UserService {
     @Autowired
     BlacklistTokenService blacklistTokenService;
 
+    private final RateLimitService limitService;
     private final UserRepository userRepository;
     private final EmailService emailService;
     private final VerificationCodeRepository verificationCodeRepository;
@@ -51,10 +54,11 @@ public class UserService {
     RedisTemplate<String, Object> redisTemplate;
 
     @Autowired
-    public UserService(UserRepository userRepository, EmailService emailService, VerificationCodeRepository verificationCodeRepository) {
+    public UserService(UserRepository userRepository, EmailService emailService, VerificationCodeRepository verificationCodeRepository, RateLimitService limitService) {
         this.userRepository = userRepository;
         this.emailService = emailService;
         this.verificationCodeRepository = verificationCodeRepository;
+        this.limitService = limitService;
     }
 
     @Transactional
@@ -114,7 +118,7 @@ public class UserService {
 
     @Transactional
     public void initiateUsernameChangeFlow(final ChangeUsernameDTO dto) {
-        User user = userRepository.findByUsername(dto.getUsername());
+        User user = userRepository.findByEmail(dto.getEmail());
         if (user == null || !passwordEncoder.matches(dto.getPassword(), user.getPassword())) {
             throw new IllegalArgumentException("Invalid credentials.");
         }
@@ -123,18 +127,18 @@ public class UserService {
             throw new IllegalArgumentException("The new username is already taken.");
         }
 
-        List<VerificationCode> oldCodes = verificationCodeRepository.findByUsername(dto.getUsername());
+        String pin = String.format("%06d", new SecureRandom().nextInt(1000000));
+
+        VerificationCode verificationData = new VerificationCode(pin, user.getEmail());
+        emailService.sendVerificationCode(user.getEmail(), "Your Identity Verification Code", pin);
+
+        List<VerificationCode> oldCodes = verificationCodeRepository.findByEmail(dto.getEmail());
 
         if(!oldCodes.isEmpty()){
             verificationCodeRepository.deleteAll(oldCodes);
         }
 
-        String pin = String.format("%06d", new SecureRandom().nextInt(1000000));
-
-        VerificationCode verificationData = new VerificationCode(pin, user.getUsername());
         verificationCodeRepository.save(verificationData);
-
-        emailService.sendVerificationCode(user.getEmail(), "Your Identity Verification Code", pin);
     }
 
 
@@ -144,7 +148,7 @@ public class UserService {
         VerificationCode savedToken = verificationCodeRepository.findById(code)
                 .orElseThrow(() -> new IllegalArgumentException("Invalid or expired verification code."));
 
-        if (!savedToken.getUsername().equals(dto.getUsername())) {
+        if (!savedToken.getEmail().equals(dto.getEmail())) {
             throw new IllegalArgumentException("Code does not match this user identity.");
         }
 
@@ -152,7 +156,7 @@ public class UserService {
             throw new IllegalArgumentException("Username is already taken.");
         }
 
-        User user = userRepository.findByUsername(dto.getUsername());
+        User user = userRepository.findByEmail(dto.getEmail());
 
         user.setUsername(dto.getNewUsername());
         SecurityContextHolder.clearContext();
@@ -165,23 +169,23 @@ public class UserService {
 
     @Transactional
     public void initiatePasswordChange(final ChangePasswordDTO dto) {
-        User user = userRepository.findByUsername(dto.getUsername());
+        User user = userRepository.findByEmail(dto.getEmail());
         if (user == null || !passwordEncoder.matches(dto.getOldPassword(), user.getPassword())) {
             throw new IllegalArgumentException("Invalid credentials.");
         }
 
-        List<VerificationCode> oldCodes = verificationCodeRepository.findByUsername(dto.getUsername());
+        String pin = String.format("%06d", new SecureRandom().nextInt(1000000));
+
+        VerificationCode verificationData = new VerificationCode(pin, user.getEmail());
+        emailService.sendVerificationCode(user.getEmail(), "Your Identity Verification Code", pin);
+
+        List<VerificationCode> oldCodes = verificationCodeRepository.findByEmail(dto.getEmail());
 
         if(!oldCodes.isEmpty()){
             verificationCodeRepository.deleteAll(oldCodes);
         }
 
-        String pin = String.format("%06d", new SecureRandom().nextInt(1000000));
-
-        VerificationCode verificationData = new VerificationCode(pin, user.getUsername());
         verificationCodeRepository.save(verificationData);
-
-        emailService.sendVerificationCode(user.getEmail(), "Your Identity Verification Code", pin);
     }
 
     @Transactional
@@ -190,11 +194,11 @@ public class UserService {
         VerificationCode savedToken = verificationCodeRepository.findById(code)
                 .orElseThrow(() -> new IllegalArgumentException("Invalid or expired verification code."));
 
-        if (!savedToken.getUsername().equals(dto.getUsername())) {
+        if (!savedToken.getEmail().equals(dto.getEmail())) {
             throw new IllegalArgumentException("Code does not match this user identity.");
         }
 
-        User user = userRepository.findByUsername(dto.getUsername());
+        User user = userRepository.findByEmail(dto.getEmail());
 
         user.setPassword(passwordEncoder.encode(dto.getNewPassword()));
 
@@ -202,6 +206,33 @@ public class UserService {
 
         verificationCodeRepository.delete(savedToken);
 
+    }
+
+
+    public void resendCode(final String email, HttpServletRequest request) {
+
+        String userIp = request.getHeader("X-Forwarded-For");
+        if(userIp == null || userIp.isEmpty()) {
+            userIp = request.getRemoteAddr();
+        }
+
+        if (!limitService.tryConsume(userIp)) {
+            throw new RateLimitException("Too many verification requests. Please wait before trying again.");
+        }
+
+
+        String pin = String.format("%06d", new SecureRandom().nextInt(1000000));
+
+        VerificationCode verificationData = new VerificationCode(pin, email);
+        emailService.sendVerificationCode(email, "Your Identity Verification Code", pin);
+
+        List<VerificationCode> oldCodes = verificationCodeRepository.findByEmail(email);
+
+        if(!oldCodes.isEmpty()){
+            verificationCodeRepository.deleteAll(oldCodes);
+        }
+
+        verificationCodeRepository.save(verificationData);
     }
 
 

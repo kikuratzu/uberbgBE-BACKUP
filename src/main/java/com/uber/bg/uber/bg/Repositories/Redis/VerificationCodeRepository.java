@@ -6,5 +6,5 @@ import org.springframework.data.repository.CrudRepository;
 import java.util.List;
 
 public interface VerificationCodeRepository extends CrudRepository<VerificationCode, String> {
-    List<VerificationCode> findByUsername(String username);
+    List<VerificationCode> findByEmail(String email);
 }

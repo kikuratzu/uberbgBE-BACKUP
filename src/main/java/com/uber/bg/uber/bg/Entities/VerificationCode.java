@@ -17,5 +17,5 @@ public class VerificationCode {
     private String code;
 
     @Indexed
-    private String username;
+    private String email;
 }

@@ -13,7 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 @AllArgsConstructor
 @Slf4j
 public class ChangePasswordDTO {
-    private String username;
+    private String email;
     private String oldPassword;
     private String newPassword;
 }
