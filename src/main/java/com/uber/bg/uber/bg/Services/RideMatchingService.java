@@ -41,6 +41,26 @@ public class RideMatchingService {
         this.rideRepository = rideRepository;
     }
 
+    public List<Map<String, Object>> getOnlineDrivers() {
+        GeoResults<RedisGeoCommands.GeoLocation<Object>> results =
+                redisTemplate.opsForGeo().search("drivers:active",
+                        GeoReference.fromCoordinate(new Point(0,0)),
+                        new Distance(20000, Metrics.KILOMETERS),
+                        RedisGeoCommands.GeoSearchCommandArgs.newGeoSearchArgs());
+
+        if (results == null) return Collections.emptyList();
+
+        List<Map<String, Object>> drivers = new ArrayList<>();
+        for (GeoResult<RedisGeoCommands.GeoLocation<Object>> result : results) {
+            drivers.add(Map.of(
+                    "driverId", result.getContent().getName().toString(),
+                    "latitude", result.getContent().getPoint().getY(),
+                    "longitude", result.getContent().getPoint().getX()
+            ));
+        }
+        return drivers;
+    }
+
     public void notifyThreeClosestDrivers(final UUID rideId, final int people, final double pickupLng, final double pickupLat, final double destinationLng, final double destinationLat) {
         log.info("Initiating proximity search to notify the 3 closest drivers for rideId: {}", rideId);
 

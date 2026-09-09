@@ -20,13 +20,14 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<?> handleIllegalArgumentExceptions(IllegalArgumentException ex) {
+        log.error("IllegalArgumentException caught: {}", ex.getMessage());
         Map<String, String> errorResponse = new HashMap<>();
         errorResponse.put("error", ex.getMessage());
 
         if (ex.getMessage().contains("taken")) {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(errorResponse);
         }
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
     }
 
     @MessageExceptionHandler(IllegalStateException.class)

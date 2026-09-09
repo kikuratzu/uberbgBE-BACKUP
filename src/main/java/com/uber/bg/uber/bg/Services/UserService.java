@@ -1,18 +1,21 @@
 package com.uber.bg.uber.bg.Services;
 
-import com.uber.bg.uber.bg.DTOs.ChangePasswordDTO;
-import com.uber.bg.uber.bg.DTOs.ChangeUsernameDTO;
-import com.uber.bg.uber.bg.DTOs.CreateUserDTO;
-import com.uber.bg.uber.bg.DTOs.LoginUserDTO;
+import com.uber.bg.uber.bg.DTOs.*;
+import com.uber.bg.uber.bg.Entities.Car;
+import com.uber.bg.uber.bg.Entities.Ride;
 import com.uber.bg.uber.bg.Entities.User;
 import com.uber.bg.uber.bg.Entities.VerificationCode;
 import com.uber.bg.uber.bg.Enumerations.USER_ROLE;
 import com.uber.bg.uber.bg.Exceptions.RateLimitException;
+import com.uber.bg.uber.bg.Repositories.Jpa.RideRepository;
 import com.uber.bg.uber.bg.Repositories.Jpa.UserRepository;
 import com.uber.bg.uber.bg.Repositories.Redis.VerificationCodeRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -50,8 +53,6 @@ public class UserService {
     private final EmailService emailService;
     private final VerificationCodeRepository verificationCodeRepository;
 
-    @Autowired
-    RedisTemplate<String, Object> redisTemplate;
 
     @Autowired
     public UserService(UserRepository userRepository, EmailService emailService, VerificationCodeRepository verificationCodeRepository, RateLimitService limitService) {
@@ -62,10 +63,10 @@ public class UserService {
     }
 
     @Transactional
-    public void createUser(final CreateUserDTO dto)  {
+    public void createUser(final CreateUserDTO dto, final CarDTO carDTO)  {
 
         if (userRepository.existsByUsername(dto.getUsername())){
-            throw new IllegalArgumentException("user with this username already exists");
+            throw new IllegalArgumentException("Username is already taken");
         }
 
 
@@ -79,6 +80,13 @@ public class UserService {
                 .lastName(dto.getLastName())
                 .role(("DRIVER".equalsIgnoreCase(String.valueOf(dto.getRole()))) ? USER_ROLE.DRIVER : USER_ROLE.PASSENGER)
                 .build();
+
+            if (carDTO != null) {
+                Car car = new Car();
+                BeanUtils.copyProperties(carDTO, car);
+                user.getVehicles().add(car);
+            }
+
 
 
         userRepository.save(user);
@@ -233,6 +241,16 @@ public class UserService {
         }
 
         verificationCodeRepository.save(verificationData);
+    }
+
+    @Transactional(readOnly = true)
+    public ProfileDTO getProfile(final UUID userId) {
+        User user = userRepository.findById(userId).orElseThrow();
+        ProfileDTO profileDTO = new ProfileDTO();
+        BeanUtils.copyProperties(user, profileDTO);
+        profileDTO.setRole(user.getRole().name());
+        return profileDTO;
+
     }
 
 

@@ -1,18 +1,21 @@
 package com.uber.bg.uber.bg.Controllers;
 
-import com.uber.bg.uber.bg.DTOs.ChangePasswordDTO;
-import com.uber.bg.uber.bg.DTOs.ChangeUsernameDTO;
-import com.uber.bg.uber.bg.DTOs.CreateUserDTO;
-import com.uber.bg.uber.bg.DTOs.LoginUserDTO;
+import com.mongodb.lang.Nullable;
+import com.uber.bg.uber.bg.DTOs.*;
 import com.uber.bg.uber.bg.Services.UserService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -25,11 +28,11 @@ public class UserController {
     private UserService service;
 
     @PostMapping("/createUser")
-    public HttpStatus createUser(
+    public ResponseEntity<HttpStatus> createUser(
             @RequestBody CreateUserDTO dto
             ) {
-        service.createUser(dto);
-        return HttpStatus.CREATED;
+        service.createUser(dto, dto.getCar());
+        return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
     @PostMapping("/loginUser")
@@ -85,5 +88,9 @@ public class UserController {
                            HttpServletRequest request) {
         service.resendCode(email, request);
     }
-
+    @GetMapping("getProfile/{userId}")
+    @PreAuthorize("hasAnyRole('DRIVER','PASSENGER')")
+    public ProfileDTO getProfile(@PathVariable final UUID userId) {
+        return service.getProfile(userId);
+    }
 }

@@ -1,5 +1,6 @@
 package com.uber.bg.uber.bg.Services;
 
+import com.uber.bg.uber.bg.DTOs.ActivityDTO;
 import com.uber.bg.uber.bg.DTOs.LocationPingDTO;
 import com.uber.bg.uber.bg.Entities.LocationPing;
 import com.uber.bg.uber.bg.Entities.Ride;
@@ -9,6 +10,8 @@ import com.uber.bg.uber.bg.Repositories.Jpa.RideRepository;
 import com.uber.bg.uber.bg.Repositories.Jpa.UserRepository;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -105,8 +108,46 @@ public class RiderService {
     }
 
     @Transactional
-    public void rateRide(final UUID rideId) {
+    public void rateRide(final UUID rideId, final double rating) {
+        Ride ride = rideRepository.findById(rideId).orElseThrow(() -> new IllegalArgumentException("No ride with this id"));
+        User driver = ride.getDriver();
+        if (driver == null) {
+            throw new IllegalStateException("No driver assigned to this ride");
+        }
 
+        Double currentRating = driver.getRating();
+        if (currentRating == null) currentRating = 0.0;
+
+        long rideCount = driver.getDriveHistory().stream()
+                .filter(r -> r.getStatus() == RIDE_STATUS.ARRIVED)
+                .count();
+
+        double newRating = ((currentRating * rideCount) + rating) / (rideCount + 1);
+        driver.setRating(newRating);
+        userRepository.save(driver);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<ActivityDTO> getActivity(final UUID passengerId, Pageable pageable){
+        Page<Ride> ridePage = rideRepository.findByPassengerId(passengerId, pageable);
+
+        return ridePage.map(this::convertToActivityDto);
+
+    }
+
+    private ActivityDTO convertToActivityDto(Ride ride) {
+
+        return ActivityDTO.builder()
+                .rideId(ride.getId())
+                .status(ride.getStatus())
+                .date(ride.getDate())
+                .people(ride.getPeople())
+                .pickUpLongitude(ride.getPickupLocation().getLongitude())
+                .pickUpLatitude(ride.getPickupLocation().getLatitude())
+                .destinationLongitude(ride.getDestinationLocation().getLongitude())
+                .destinationLatitude(ride.getDestinationLocation().getLatitude())
+                .driverName((ride.getDriver() != null ? ride.getDriver().getUsername() : null))
+                .build();
     }
 
 

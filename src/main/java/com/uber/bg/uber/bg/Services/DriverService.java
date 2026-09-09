@@ -1,13 +1,17 @@
 package com.uber.bg.uber.bg.Services;
 
+import com.uber.bg.uber.bg.DTOs.ActivityDTO;
 import com.uber.bg.uber.bg.DTOs.LocationPingDTO;
 import com.uber.bg.uber.bg.Entities.Ride;
+import com.uber.bg.uber.bg.Entities.User;
 import com.uber.bg.uber.bg.Enumerations.RIDE_STATUS;
 import com.uber.bg.uber.bg.Repositories.Jpa.RideRepository;
 import com.uber.bg.uber.bg.Repositories.Jpa.TempRideCoordinatesRepository;
 import com.uber.bg.uber.bg.Repositories.Jpa.UserRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -45,6 +49,21 @@ public class DriverService {
         this.simpMessagingTemplate = simpMessagingTemplate;
         this.kafkaTemplate = kafkaTemplate;
         this.tempRideCoordinatesRepository = tempRideCoordinatesRepository;
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, Object> getRideDetails(final UUID rideId) {
+        Ride ride = rideRepository.findById(rideId).orElseThrow(() -> new IllegalArgumentException("Ride not found"));
+        User passenger = ride.getPassenger();
+        return Map.of(
+                "rideId", ride.getId().toString(),
+                "passengerName", passenger.getFirstName() + " " + passenger.getLastName(),
+                "pickupLat", ride.getPickupLocation().getLatitude(),
+                "pickupLng", ride.getPickupLocation().getLongitude(),
+                "destLat", ride.getDestinationLocation().getLatitude(),
+                "destLng", ride.getDestinationLocation().getLongitude(),
+                "people", ride.getPeople()
+        );
     }
 
     @Retryable(
@@ -170,8 +189,24 @@ public class DriverService {
     public void goOffline(final UUID driverId) {
         redisTemplate.opsForZSet().remove("drivers:active", driverId.toString());
         redisTemplate.opsForHash().put("driver:current:"+driverId.toString(),"status","OFFLINE");
-
     }
 
+    @Transactional(readOnly = true)
+    public Page<ActivityDTO> getActivity(final UUID driverId, Pageable pageable) {
+        Page<Ride> ridePage = rideRepository.findByDriverId(driverId, pageable);
+        return ridePage.map(this::convertToActivityDto);
+    }
 
+    private ActivityDTO convertToActivityDto(Ride ride) {
+        return ActivityDTO.builder()
+                .rideId(ride.getId())
+                .status(ride.getStatus())
+                .date(ride.getDate())
+                .people(ride.getPeople())
+                .pickUpLongitude(ride.getPickupLocation().getLongitude())
+                .pickUpLatitude(ride.getPickupLocation().getLatitude())
+                .destinationLongitude(ride.getDestinationLocation().getLongitude())
+                .destinationLatitude(ride.getDestinationLocation().getLatitude())
+                .build();
+    }
 }

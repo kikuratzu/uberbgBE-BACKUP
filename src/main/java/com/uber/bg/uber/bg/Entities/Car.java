@@ -22,7 +22,7 @@ public class Car extends BaseEntity {
     @Column(name = "plate_number", nullable = false)
     private String plateNumber;
     @Lob
-    @Column(name = "car_photo", nullable = false)
+    @Column(name = "car_photo", nullable = true)
     private byte[] carPhoto;
 
     @ManyToMany(mappedBy = "vehicles")

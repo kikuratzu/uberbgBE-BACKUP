@@ -1,11 +1,17 @@
 package com.uber.bg.uber.bg.Controllers;
 
+import com.uber.bg.uber.bg.DTOs.ActivityDTO;
 import com.uber.bg.uber.bg.DTOs.LocationPingDTO;
+import com.uber.bg.uber.bg.DTOs.ProfileDTO;
 import com.uber.bg.uber.bg.Entities.Ride;
 import com.uber.bg.uber.bg.Services.DriverService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -31,7 +37,13 @@ public class DriverController {
         this.kafkaTemplate = kafkaTemplate;
     }
 
-@GetMapping("/getAllRides")
+@GetMapping("/getRide/{rideId}")
+    @PreAuthorize("hasRole('DRIVER')")
+    public Map<String, Object> getRide(@PathVariable final UUID rideId) {
+        return service.getRideDetails(rideId);
+    }
+
+    @GetMapping("/getAllRides")
     @PreAuthorize("hasAnyRole('DRIVER','ADMIN')")
     public List<Map<String, String>> getAllRidesAvailableRides() {
     return service.getAllAvailableRides();
@@ -77,4 +89,10 @@ service.endRide(rideId);
         service.goOffline(driverId);
 }
 
+  @GetMapping("/getActivity/{userId}")
+    @PreAuthorize("hasRole('DRIVER')")
+    public Page<ActivityDTO> getActivity(@PathVariable final UUID userId,
+                                         @PageableDefault(size = 5, sort = "date", direction = Sort.Direction.DESC) final Pageable pageable) {
+        return service.getActivity(userId, pageable);
+    }
 }

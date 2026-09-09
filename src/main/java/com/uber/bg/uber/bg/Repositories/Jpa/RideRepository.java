@@ -1,6 +1,8 @@
 package com.uber.bg.uber.bg.Repositories.Jpa;
 
 import com.uber.bg.uber.bg.Entities.Ride;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.repository.query.Param;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -9,6 +11,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -24,4 +27,7 @@ public interface RideRepository extends JpaRepository<Ride, UUID> {
             " FROM temp_ride_coordinates WHERE ride_id = :rideId" +
             ") WHERE id = :rideId", nativeQuery = true)
     void compileRouteHistoryToLineString(@Param("rideId") UUID rideId);
+
+    Page<Ride> findByPassengerId(UUID passengerId, Pageable pageable);
+    Page<Ride> findByDriverId(UUID driverId, Pageable pageable);
 }

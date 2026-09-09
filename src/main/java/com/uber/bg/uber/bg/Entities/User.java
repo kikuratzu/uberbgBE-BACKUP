@@ -56,7 +56,7 @@ public class User extends BaseEntity {
 
 
     @Builder.Default
-    @ManyToMany
+    @ManyToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     @JoinTable(
             name = "driver_cars",
             joinColumns = @JoinColumn(name = "driver_id"),
