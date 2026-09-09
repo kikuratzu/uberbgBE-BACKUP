@@ -16,9 +16,9 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import javax.swing.text.Utilities;
 import java.time.Instant;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 
 @Service
@@ -38,7 +38,7 @@ public class RiderService {
     }
 
 @Transactional
-    public void requestRide(final UUID id, final LocationPingDTO pickupDto, final LocationPingDTO destinationDto, final int people) {
+    public UUID requestRide(final UUID id, final LocationPingDTO pickupDto, final LocationPingDTO destinationDto, final int people) {
 
         if (redisTemplate.hasKey("passenger:to:ride:"+id.toString())){
             throw new IllegalStateException("already requested a ride");
@@ -85,11 +85,12 @@ public class RiderService {
     redisTemplate.opsForSet().add("rides:open", ride.getId().toString());
 
     rideMatchingService.notifyThreeClosestDrivers(ride.getId(), ride.getPeople(), pickupDto.getLongitude(), pickupDto.getLatitude(), destinationDto.getLongitude(), destinationDto.getLatitude());
+
+    return ride.getId();
     }
 
     @Transactional
     public void CancelRide (final UUID id) {
-        User user = userRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("No passenger with this id"));
 
         String rideIdStr = (String) redisTemplate.opsForValue().get("passenger:to:ride:" + id);
         if (rideIdStr == null) {
@@ -148,6 +149,10 @@ public class RiderService {
                 .destinationLatitude(ride.getDestinationLocation().getLatitude())
                 .driverName((ride.getDriver() != null ? ride.getDriver().getUsername() : null))
                 .build();
+    }
+
+    public String getRideStatus(final UUID rideId) {
+        return Objects.requireNonNull(redisTemplate.opsForHash().get("ride:" + rideId.toString(), "status")).toString();
     }
 
 

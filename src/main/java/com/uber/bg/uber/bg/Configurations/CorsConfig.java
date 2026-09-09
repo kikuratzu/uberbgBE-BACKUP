@@ -1,6 +1,5 @@
 package com.uber.bg.uber.bg.Configurations;
 
-import org.checkerframework.checker.nullness.qual.NonNull;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
@@ -13,11 +12,17 @@ public class CorsConfig {
     public WebMvcConfigurer corsConfigurer() {
         return new WebMvcConfigurer() {
             @Override
-            public void addCorsMappings(@NonNull CorsRegistry registry) {
+            public void addCorsMappings(CorsRegistry registry) {
                 registry.addMapping("/**")
-                        .allowedOrigins("*")
-                        .allowedMethods("POST", "GET", "PUT", "PATCH", "DELETE","OPTIONS")
-                        .allowedHeaders("*");
+                        .allowedOriginPatterns(
+                                "http://localhost:5500",
+                                "http://localhost:8000",
+                                "http://127.0.0.1:5500",
+                                "http://127.0.0.1:8000"
+                        )
+                        .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
+                        .allowedHeaders("*")
+                        .allowCredentials(true);
             }
         };
     }

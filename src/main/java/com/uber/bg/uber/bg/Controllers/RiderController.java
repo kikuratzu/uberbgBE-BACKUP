@@ -5,6 +5,7 @@ import com.uber.bg.uber.bg.DTOs.LocationPingDTO;
 import com.uber.bg.uber.bg.DTOs.RequestRideDTO;
 import com.uber.bg.uber.bg.Entities.LocationPing;
 import com.uber.bg.uber.bg.Entities.User;
+import com.uber.bg.uber.bg.Enumerations.RIDE_STATUS;
 import com.uber.bg.uber.bg.Services.RiderService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,9 +35,9 @@ public class RiderController {
 
     @PostMapping("requestRide/{passengerId}")
     @PreAuthorize("hasRole('PASSENGER')")
-    public HttpStatus requestRider(@PathVariable final UUID passengerId, @RequestBody RequestRideDTO dto) {
-        service.requestRide(passengerId, dto.getPickup(), dto.getDestination(), dto.getPeople());
-        return HttpStatus.ACCEPTED;
+    public UUID requestRider(@PathVariable final UUID passengerId, @RequestBody RequestRideDTO dto) {
+      return service.requestRide(passengerId, dto.getPickup(), dto.getDestination(), dto.getPeople());
+
     }
 
     @DeleteMapping("cancelRide/{passengerId}")
@@ -58,6 +59,12 @@ public class RiderController {
     public Page<ActivityDTO> getActivity(@PathVariable final UUID userId,
                                          @PageableDefault(size = 5, sort = "date", direction = Sort.Direction.DESC) final Pageable pageable) {
         return service.getActivity(userId, pageable);
+    }
+
+    @GetMapping("/getRideStatus/{rideId}")
+    @PreAuthorize("hasRole('PASSENGER')")
+    public String getRideStatus(@PathVariable final UUID rideId) {
+        return service.getRideStatus(rideId);
     }
 
 }
