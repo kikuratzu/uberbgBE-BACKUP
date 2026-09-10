@@ -34,4 +34,14 @@ public class RedisConfiguration {
         template.afterPropertiesSet();
         return template;
     }
+
+    @Bean(name = "chatRedisTemplate")
+    public RedisTemplate<String, Object> chatRedisTemplate(RedisConnectionFactory factory) {
+        RedisTemplate<String, Object> template = new RedisTemplate<>();
+        template.setConnectionFactory(factory);
+        template.setKeySerializer(new StringRedisSerializer());
+        template.setValueSerializer(new GenericJackson2JsonRedisSerializer());
+        template.afterPropertiesSet();
+        return template;
+    }
 }
