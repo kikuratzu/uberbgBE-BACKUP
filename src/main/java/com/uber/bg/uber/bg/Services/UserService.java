@@ -26,11 +26,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.lang.reflect.Field;
 import java.security.SecureRandom;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 @Service
 @Slf4j
@@ -250,6 +248,14 @@ public class UserService {
         BeanUtils.copyProperties(user, profileDTO);
         profileDTO.setRole(user.getRole().name());
         return profileDTO;
+
+    }
+
+    @Transactional
+    public void editProfile(final UUID userId, final ChangeProfileDataDTO dto) {
+        User user = userRepository.findById(userId).orElseThrow(() -> new IllegalArgumentException("didnt find user with this id"));
+        BeanUtils.copyProperties(dto, user);
+        userRepository.save(user);
 
     }
 

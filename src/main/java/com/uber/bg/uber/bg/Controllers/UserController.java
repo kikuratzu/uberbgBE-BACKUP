@@ -93,4 +93,10 @@ public class UserController {
     public ProfileDTO getProfile(@PathVariable final UUID userId) {
         return service.getProfile(userId);
     }
+    @PutMapping("editProfile/{userId}")
+    @PreAuthorize("hasAnyRole('DRIVER','PASSENGER')")
+    public void editProfile(@PathVariable final UUID userId,
+                            @RequestBody final ChangeProfileDataDTO changeProfileDataDTO) {
+        service.editProfile(userId, changeProfileDataDTO);
+    }
 }
